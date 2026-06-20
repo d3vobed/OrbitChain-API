@@ -27,7 +27,13 @@ export class ApiKeysController {
 
   /** POST /api-keys — Generate a new API key (returns raw key only once) */
   @Post()
-  async create(@Req() req: Request & { user: JwtUser }): Promise<{ id: string; key: string; prefix: string; scope: string; createdAt: Date }> {
+  async create(@Req() req: Request & { user: JwtUser }): Promise<{
+    id: string;
+    key: string;
+    prefix: string;
+    scope: string;
+    createdAt: Date;
+  }> {
     const rawKey = `sk_${randomBytes(32).toString('hex')}`;
     const prefix = rawKey.slice(0, 12);
     const keyHash = createHash('sha256').update(rawKey).digest('hex');

@@ -4,7 +4,8 @@ describe('StellarEventService', () => {
   const createService = () => {
     const config = {
       get: jest.fn((key: string, fallback?: string) => {
-        if (key === 'STELLAR_HORIZON_URL') return 'https://horizon-testnet.stellar.org';
+        if (key === 'STELLAR_HORIZON_URL')
+          return 'https://horizon-testnet.stellar.org';
         if (key === 'STELLAR_NETWORK_PASSPHRASE') {
           return 'Test SDF Network ; September 2015';
         }

@@ -230,11 +230,13 @@ export class MilestonesService {
 
     for (const stat of stats) {
       result.total += stat._count;
-      const status = (stat.status as string).toLowerCase() as keyof typeof result;
+      const status = (
+        stat.status as string
+      ).toLowerCase() as keyof typeof result;
       const entry = result[status];
       if (entry && typeof entry !== 'number') {
         entry.count = stat._count ?? 0;
-        entry.amount = (stat._sum.amount?.toString()) || '0';
+        entry.amount = stat._sum.amount?.toString() || '0';
       }
     }
 

@@ -81,7 +81,7 @@ export class DonationsService {
 
     await this.stellarTxs.verifyDonationTransaction({
       txHash: dto.txHash,
-      destination: campaign.contractId!,
+      destination: campaign.contractId,
       amount: dto.amount,
       asset: requestedAsset,
       acceptedAssets,
@@ -287,28 +287,29 @@ export class DonationsService {
     });
     if (!campaign) throw new NotFoundException('Campaign not found');
 
-    const skip = (page - 1) * limit;      const total = await this.prisma.donation.count({
-        where: { campaignId, status: 'CONFIRMED' },
-      });
+    const skip = (page - 1) * limit;
+    const total = await this.prisma.donation.count({
+      where: { campaignId, status: 'CONFIRMED' },
+    });
 
-      const donations = await this.prisma.donation.findMany({
-        where: { campaignId, status: 'CONFIRMED' },
-        include: { donor: { select: { walletAddress: true } } },
-        orderBy: { [sortBy]: order },
-        skip,
-        take: limit,
-      });
+    const donations = await this.prisma.donation.findMany({
+      where: { campaignId, status: 'CONFIRMED' },
+      include: { donor: { select: { walletAddress: true } } },
+      orderBy: { [sortBy]: order },
+      skip,
+      take: limit,
+    });
 
-      const donationsWithRank = donations.map((donation, index) => ({
-        rank: skip + index + 1,
-        walletAddress: donation.isAnonymous
-          ? 'Anonymous'
-          : (donation.donor?.walletAddress ?? 'Anonymous'),
-        amount: donation.amount.toString(),
-        assetCode: donation.assetCode,
-        createdAt: donation.createdAt,
-        txHash: donation.txHash,
-      }));
+    const donationsWithRank = donations.map((donation, index) => ({
+      rank: skip + index + 1,
+      walletAddress: donation.isAnonymous
+        ? 'Anonymous'
+        : (donation.donor?.walletAddress ?? 'Anonymous'),
+      amount: donation.amount.toString(),
+      assetCode: donation.assetCode,
+      createdAt: donation.createdAt,
+      txHash: donation.txHash,
+    }));
 
     return {
       donations: donationsWithRank,

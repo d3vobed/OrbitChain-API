@@ -25,10 +25,16 @@ import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AdminGuard } from '../users/guards/admin.guard';
-import { BrowseCampaignsQueryDto, BrowseCampaignsResponseDto } from './dto/browse-campaigns.dto';
+import {
+  BrowseCampaignsQueryDto,
+  BrowseCampaignsResponseDto,
+} from './dto/browse-campaigns.dto';
 import { DonationsService } from '../donations/donations.service';
 import { ContractBalanceResponseDto } from './dto/contract-balance.dto';
-import { GetCampaignDonationsQueryDto, GetCampaignDonationsResponseDto } from '../donations/dto/get-campaign-donations.dto';
+import {
+  GetCampaignDonationsQueryDto,
+  GetCampaignDonationsResponseDto,
+} from '../donations/dto/get-campaign-donations.dto';
 import { CreateUpdateDto } from './dto/create-update.dto';
 
 const FORBIDDEN_FIELDS = [
@@ -92,9 +98,8 @@ export class CampaignsController {
   ): Promise<BrowseCampaignsResponseDto> {
     const cacheKey = this.generateCacheKey(query);
 
-    const cached = await this.cacheManager.get<BrowseCampaignsResponseDto>(
-      cacheKey,
-    );
+    const cached =
+      await this.cacheManager.get<BrowseCampaignsResponseDto>(cacheKey);
     if (cached) {
       return cached;
     }

@@ -225,7 +225,9 @@ export class StellarEventService implements OnApplicationBootstrap {
     });
 
     if (!savedCursor) {
-      this.logger.log('No saved cursor found in Postgres. Rolling forward to "now".');
+      this.logger.log(
+        'No saved cursor found in Postgres. Rolling forward to "now".',
+      );
       await this.saveCursor('now');
       return 'now';
     }
@@ -265,7 +267,9 @@ export class StellarEventService implements OnApplicationBootstrap {
       await this.horizonServer.transactions().cursor(cursor).limit(1).call();
       return true;
     } catch (err) {
-      this.logger.warn(`Failed validating saved cursor ${cursor}: ${err.message}`);
+      this.logger.warn(
+        `Failed validating saved cursor ${cursor}: ${err.message}`,
+      );
       return false;
     }
   }
@@ -337,7 +341,9 @@ export class StellarEventService implements OnApplicationBootstrap {
               : null;
             const body = event.body();
             const v0 = body?.v0();
-            const topics = (v0?.topics() || []).map((t: any) => scValToNative(t));
+            const topics = (v0?.topics() || []).map((t: any) =>
+              scValToNative(t),
+            );
             const rawValue = v0?.data();
             const value = rawValue ? scValToNative(rawValue) : null;
 

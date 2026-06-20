@@ -13,7 +13,12 @@ import { DonationsModule } from '../donations/donations.module';
 
 /** Module providing campaign CRUD, browsing, featured campaigns, and stats */
 @Module({
-  imports: [PrismaModule, AuthModule, forwardRef(() => DonationsModule), StellarModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    forwardRef(() => DonationsModule),
+    StellarModule,
+  ],
   controllers: [CampaignsController, AdminCampaignsController],
   providers: [CampaignsService, JwtAuthGuard, AdminGuard],
   exports: [CampaignsService],

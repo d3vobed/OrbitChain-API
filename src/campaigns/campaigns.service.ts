@@ -29,7 +29,9 @@ export class CampaignsService {
    */
   async createCampaign(userId: string, dto: CreateCampaignDto) {
     if (!dto.goalAmount || parseFloat(dto.goalAmount) <= 0) {
-      throw new BadRequestException('goalAmount is required and must be greater than 0');
+      throw new BadRequestException(
+        'goalAmount is required and must be greater than 0',
+      );
     }
     const milestoneCreates = (dto.milestones || []).map((m) => ({
       title: m.title,
@@ -314,7 +316,9 @@ export class CampaignsService {
       throw new NotFoundException(`Campaign ${campaignId} not found`);
     }
     if (campaign.creatorId !== userId) {
-      throw new ForbiddenException('Only the campaign creator can post updates');
+      throw new ForbiddenException(
+        'Only the campaign creator can post updates',
+      );
     }
 
     return this.prisma.update.create({
@@ -374,7 +378,15 @@ export class CampaignsService {
     const uniqueAssets = [...new Set(donations.map((d) => d.assetCode))];
     const avgDonation = donations.length ? totalRaised / donations.length : 0;
 
-    return { campaignId, totalRaised, donorCount, uniqueAssets, avgDonation, donationsPerDay: [], topDonors: [] };
+    return {
+      campaignId,
+      totalRaised,
+      donorCount,
+      uniqueAssets,
+      avgDonation,
+      donationsPerDay: [],
+      topDonors: [],
+    };
   }
 
   private async browseCampaignsWithFullTextSearch(input: {

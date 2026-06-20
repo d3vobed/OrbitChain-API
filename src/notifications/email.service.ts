@@ -102,8 +102,8 @@ export class EmailService {
       );
 
       // In dev mode with jsonTransport, log the message content
-      if (info.messageId && (info as any).message) {
-        this.logger.debug(`Email body preview: ${(info as any).message}`);
+      if (info.messageId && info.message) {
+        this.logger.debug(`Email body preview: ${info.message}`);
       }
     } catch (error) {
       this.logger.error(

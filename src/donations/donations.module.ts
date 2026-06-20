@@ -10,7 +10,12 @@ import { AdminTipsController } from './admin-tips.controller';
 
 /** Module providing donation creation, verification, history, and CSV export */
 @Module({
-  imports: [PrismaModule, AuthModule, StellarModule, forwardRef(() => CampaignsModule)],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    StellarModule,
+    forwardRef(() => CampaignsModule),
+  ],
   controllers: [DonationsController, AdminTipsController],
   providers: [DonationsService, JwtAuthGuard],
   exports: [DonationsService],

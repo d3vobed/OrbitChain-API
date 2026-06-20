@@ -161,7 +161,9 @@ export class SorobanService {
       const response = await this.server.sendTransaction(finalTx);
 
       if (response.status === 'ERROR') {
-        throw this.parseTxResultError((response as any).errorResultXdr || (response as any).errorResult);
+        throw this.parseTxResultError(
+          (response as any).errorResultXdr || (response as any).errorResult,
+        );
       }
 
       const txResult = await this.pollTransaction(response.hash);

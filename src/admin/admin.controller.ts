@@ -26,6 +26,11 @@ export class AdminController {
     @Body() dto: SuspendCampaignDto,
     @Request() req: any,
   ): Promise<{ message: string }> {
-    return this.adminService.suspendCampaign(id, dto, req.user.sub, req.user.email);
+    return this.adminService.suspendCampaign(
+      id,
+      dto,
+      req.user.sub,
+      req.user.email,
+    );
   }
 }

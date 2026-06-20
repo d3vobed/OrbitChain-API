@@ -319,7 +319,8 @@ export class UsersService {
       _count: true,
     });
 
-    const totalDonated: string = totalDonatedResult._sum?.amount?.toString() || '0';
+    const totalDonated: string =
+      totalDonatedResult._sum?.amount?.toString() || '0';
     const totalDonations: number = totalDonatedResult._count ?? 0;
     const averageDonation =
       totalDonations > 0
