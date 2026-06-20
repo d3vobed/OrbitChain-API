@@ -1,12 +1,12 @@
-import { Injectable, Inject, OnApplicationBootstrap, Logger } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Queue } from 'bull';
 import { InjectQueue } from '@nestjs/bull';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
 import { Horizon, xdr, scValToNative, StrKey } from '@stellar/stellar-sdk';
 import { PrismaService } from '../prisma/prisma.service';
 import { QUEUE_CONTRACT_EVENTS } from '../queue/queue.constants';
+
+const STELLAR_CURSOR_KEY = 'stellar:event_listener:cursor';
 
 /**
  * Listens for Stellar blockchain events (payments, contract events)
@@ -18,6 +18,7 @@ export class StellarEventService implements OnApplicationBootstrap {
   private readonly logger = new Logger(StellarEventService.name);
   private readonly horizonUrl: string;
   private readonly horizonServer: Horizon.Server;
+  private readonly networkPassphrase: string;
   private streamCloseFn?: () => void;
   private lastCursor = 'now';
   private isConnecting = false;
@@ -28,29 +29,20 @@ export class StellarEventService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     @InjectQueue(QUEUE_CONTRACT_EVENTS)
     private readonly contractEventsQueue: Queue,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {
     this.horizonUrl =
       this.config.get<string>('STELLAR_HORIZON_URL') ||
       'https://horizon-testnet.stellar.org';
+    this.networkPassphrase =
+      this.config.get<string>('STELLAR_NETWORK_PASSPHRASE') ||
+      'Test SDF Network ; September 2015';
     this.horizonServer = new Horizon.Server(this.horizonUrl);
   }
 
   async onApplicationBootstrap() {
     this.logger.log('Starting Stellar Event Listener Service...');
 
-    // Load last cursor from cache
-    const savedCursor = await this.cacheManager.get<string>(
-      'stellar:event_listener:cursor',
-    );
-    if (savedCursor) {
-      this.lastCursor = savedCursor;
-      this.logger.log(
-        `Loaded last processed transaction cursor: ${this.lastCursor}`,
-      );
-    } else {
-      this.logger.log('No saved cursor found. Starting from "now"');
-    }
+    this.lastCursor = await this.loadStartupCursor();
 
     // Catch up on any missed events and start the stream
     await this.catchUpAndStartStream();
@@ -186,7 +178,7 @@ export class StellarEventService implements OnApplicationBootstrap {
               `Found contract event [${eventType}] from contract ID ${event.contractId} in tx ${tx.hash}`,
             );
 
-            await this.contractEventsQueue.add('process-event', {
+            await this.enqueueContractEvent({
               contractId: event.contractId,
               eventType,
               topics: event.topics,
@@ -211,7 +203,124 @@ export class StellarEventService implements OnApplicationBootstrap {
 
   private async saveCursor(cursor: string) {
     this.lastCursor = cursor;
-    await this.cacheManager.set('stellar:event_listener:cursor', cursor);
+    await this.prisma.eventCursor.upsert({
+      where: { key: STELLAR_CURSOR_KEY },
+      create: {
+        key: STELLAR_CURSOR_KEY,
+        cursor,
+        horizonUrl: this.horizonUrl,
+        networkPassphrase: this.networkPassphrase,
+      },
+      update: {
+        cursor,
+        horizonUrl: this.horizonUrl,
+        networkPassphrase: this.networkPassphrase,
+      },
+    });
+  }
+
+  private async loadStartupCursor(): Promise<string> {
+    const savedCursor = await this.prisma.eventCursor.findUnique({
+      where: { key: STELLAR_CURSOR_KEY },
+    });
+
+    if (!savedCursor) {
+      this.logger.log('No saved cursor found in Postgres. Rolling forward to "now".');
+      await this.saveCursor('now');
+      return 'now';
+    }
+
+    const networkMatches =
+      savedCursor.networkPassphrase === this.networkPassphrase &&
+      savedCursor.horizonUrl === this.horizonUrl;
+    if (!networkMatches) {
+      this.logger.warn(
+        `Saved cursor network mismatch (saved: ${savedCursor.horizonUrl}). Rolling forward to "now".`,
+      );
+      await this.saveCursor('now');
+      return 'now';
+    }
+
+    if (savedCursor.cursor === 'now') {
+      return 'now';
+    }
+
+    const cursorIsValid = await this.isCursorValid(savedCursor.cursor);
+    if (!cursorIsValid) {
+      this.logger.warn(
+        `Saved cursor ${savedCursor.cursor} is invalid for current network. Rolling forward to "now".`,
+      );
+      await this.saveCursor('now');
+      return 'now';
+    }
+
+    this.logger.log(
+      `Loaded last processed transaction cursor from Postgres: ${savedCursor.cursor}`,
+    );
+    return savedCursor.cursor;
+  }
+
+  private async isCursorValid(cursor: string): Promise<boolean> {
+    try {
+      await this.horizonServer.transactions().cursor(cursor).limit(1).call();
+      return true;
+    } catch (err) {
+      this.logger.warn(`Failed validating saved cursor ${cursor}: ${err.message}`);
+      return false;
+    }
+  }
+
+  private async enqueueContractEvent(payload: {
+    contractId: string;
+    eventType: string;
+    topics: unknown[];
+    value: unknown;
+    ledger: number | string;
+    txHash: string;
+    pagingToken: string;
+    createdAt: string;
+  }) {
+    const existing = await this.prisma.processedContractEvent.findUnique({
+      where: {
+        txHash_eventType: {
+          txHash: payload.txHash,
+          eventType: payload.eventType,
+        },
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      this.logger.debug(
+        `Skipping duplicate contract event [${payload.eventType}] for tx ${payload.txHash}`,
+      );
+      return;
+    }
+
+    await this.contractEventsQueue.add('process-event', payload, {
+      jobId: `${payload.txHash}:${payload.eventType}`,
+    });
+
+    try {
+      await this.prisma.processedContractEvent.create({
+        data: {
+          contractId: payload.contractId,
+          eventType: payload.eventType,
+          txHash: payload.txHash,
+          pagingToken: payload.pagingToken,
+        },
+      });
+    } catch (err) {
+      if (this.isUniqueConstraintError(err)) {
+        return;
+      }
+      throw err;
+    }
+  }
+
+  private isUniqueConstraintError(err: unknown): boolean {
+    if (!err || typeof err !== 'object') return false;
+    if (!('code' in err)) return false;
+    return String(err.code) === 'P2002';
   }
 
   private parseEvents(resultMetaXdr: string): any[] {
