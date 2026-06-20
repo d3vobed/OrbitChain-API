@@ -447,3 +447,30 @@ model SmartContract {
   @@index([campaignId])
   @@map("contracts")
 }
+
+/// EventCursor model for durable event listener cursors
+model EventCursor {
+  id                String   @id @default(uuid())
+  key               String   @unique
+  cursor            String
+  networkPassphrase String
+  horizonUrl        String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("event_cursors")
+}
+
+/// ProcessedContractEvent model for contract-event idempotency guards
+model ProcessedContractEvent {
+  id          String   @id @default(uuid())
+  contractId  String
+  eventType   String
+  txHash      String
+  pagingToken String?
+  createdAt   DateTime @default(now())
+
+  @@unique([txHash, eventType])
+  @@index([contractId])
+  @@map("processed_contract_events")
+}
